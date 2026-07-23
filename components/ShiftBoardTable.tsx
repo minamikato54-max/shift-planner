@@ -1,4 +1,4 @@
-import { enumerateDates } from "@/lib/dateUtils";
+import { dayOfWeekLabel, enumerateDates } from "@/lib/dateUtils";
 import type { AssignmentsByDate, Period, Shortfall } from "@/lib/types";
 
 type Props = {
@@ -45,7 +45,7 @@ export default function ShiftBoardTable({
           {dates.map((date) => (
             <tr key={date}>
               <td className="sticky left-0 border-b border-zinc-200 bg-white px-3 py-2 font-medium whitespace-nowrap dark:border-zinc-800 dark:bg-zinc-950">
-                {date}
+                {date}（{dayOfWeekLabel(date)}）
               </td>
               {period.slots.map((slot) => {
                 const uids = byDate[date]?.[slot.name] ?? [];

@@ -1,4 +1,4 @@
-import { enumerateDates } from "@/lib/dateUtils";
+import { dayOfWeekLabel, enumerateDates } from "@/lib/dateUtils";
 import type { Availability, Period } from "@/lib/types";
 
 type Props = {
@@ -26,7 +26,7 @@ export default function SubmissionsTable({ period, availabilities }: Props) {
                 key={date}
                 className="border-b border-zinc-200 px-3 py-2 text-left whitespace-nowrap dark:border-zinc-800"
               >
-                {date}
+                {date}（{dayOfWeekLabel(date)}）
               </th>
             ))}
           </tr>

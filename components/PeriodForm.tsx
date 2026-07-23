@@ -2,8 +2,8 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { createPeriod } from "@/lib/periods";
-import type { Slot } from "@/lib/types";
+import { createPeriod, updatePeriod } from "@/lib/periods";
+import type { Period, Slot } from "@/lib/types";
 
 const emptySlot: Slot = {
   name: "",
@@ -12,12 +12,19 @@ const emptySlot: Slot = {
   requiredCount: 1,
 };
 
-export default function PeriodForm({ createdBy }: { createdBy: string }) {
+type Props =
+  | { createdBy: string; editingPeriod?: undefined }
+  | { createdBy?: undefined; editingPeriod: Period };
+
+export default function PeriodForm(props: Props) {
+  const { editingPeriod } = props;
   const router = useRouter();
-  const [title, setTitle] = useState("");
-  const [startDate, setStartDate] = useState("");
-  const [endDate, setEndDate] = useState("");
-  const [slots, setSlots] = useState<Slot[]>([{ ...emptySlot }]);
+  const [title, setTitle] = useState(editingPeriod?.title ?? "");
+  const [startDate, setStartDate] = useState(editingPeriod?.startDate ?? "");
+  const [endDate, setEndDate] = useState(editingPeriod?.endDate ?? "");
+  const [slots, setSlots] = useState<Slot[]>(
+    editingPeriod?.slots.length ? editingPeriod.slots : [{ ...emptySlot }],
+  );
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -39,18 +46,22 @@ export default function PeriodForm({ createdBy }: { createdBy: string }) {
     e.preventDefault();
     setPending(true);
     setError(null);
+    const input = {
+      title,
+      startDate,
+      endDate,
+      slots: slots.filter((s) => s.name.trim() !== ""),
+    };
     try {
-      const id = await createPeriod(createdBy, {
-        title,
-        startDate,
-        endDate,
-        slots: slots.filter((s) => s.name.trim() !== ""),
-      });
+      if (editingPeriod) {
+        await updatePeriod(editingPeriod.id, input);
+      } else {
+        await createPeriod(props.createdBy, input);
+      }
       router.push(`/admin/periods`);
-      void id;
     } catch (err) {
-      console.error("募集期間の作成に失敗しました", err);
-      setError("作成に失敗しました。もう一度お試しください。");
+      console.error("募集期間の保存に失敗しました", err);
+      setError("保存に失敗しました。もう一度お試しください。");
     } finally {
       setPending(false);
     }
@@ -154,7 +165,11 @@ export default function PeriodForm({ createdBy }: { createdBy: string }) {
           disabled={pending}
           className="rounded-md bg-zinc-900 px-6 py-3 text-sm font-medium text-white disabled:opacity-50 dark:bg-white dark:text-zinc-900"
         >
-          {pending ? "作成中..." : "募集期間を作成する"}
+          {pending
+            ? "保存中..."
+            : editingPeriod
+              ? "変更を保存する"
+              : "募集期間を作成する"}
         </button>
         {error && <p className="mt-2 text-sm text-red-600">{error}</p>}
       </div>

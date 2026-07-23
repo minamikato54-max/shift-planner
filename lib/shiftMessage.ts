@@ -42,6 +42,7 @@ export function buildUserShiftLines(
 export function formatShiftMessage(
   periodTitle: string,
   lines: UserShiftLine[],
+  headline: string = `${periodTitle}のシフトが確定しました。`,
 ): string {
   if (lines.length === 0) {
     return `${periodTitle}\n今回、担当のシフトはありません。`;
@@ -51,5 +52,5 @@ export function formatShiftMessage(
     .map((l) => `${l.date} ${l.slotName}（${l.start}〜${l.end}）`)
     .join("\n");
 
-  return `${periodTitle}のシフトが確定しました。\n\n${body}`;
+  return `${headline}\n\n${body}`;
 }

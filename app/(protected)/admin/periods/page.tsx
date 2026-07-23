@@ -2,12 +2,13 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import { listPeriods } from "@/lib/periods";
+import { deletePeriod, listPeriods } from "@/lib/periods";
 import type { Period } from "@/lib/types";
 
 export default function AdminPeriodsPage() {
   const [periods, setPeriods] = useState<Period[] | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
 
   useEffect(() => {
     (async () => {
@@ -19,6 +20,27 @@ export default function AdminPeriodsPage() {
       }
     })();
   }, []);
+
+  async function handleDelete(period: Period) {
+    if (
+      !window.confirm(
+        `「${period.title}」を削除します。よろしいですか？（提出済みの希望や下書きシフトは削除されません）`,
+      )
+    ) {
+      return;
+    }
+    setDeletingId(period.id);
+    setError(null);
+    try {
+      await deletePeriod(period.id);
+      setPeriods((prev) => prev?.filter((p) => p.id !== period.id) ?? null);
+    } catch (err) {
+      console.error("募集期間の削除に失敗しました", err);
+      setError("削除に失敗しました。もう一度お試しください。");
+    } finally {
+      setDeletingId(null);
+    }
+  }
 
   return (
     <div className="flex flex-col gap-4">
@@ -60,6 +82,20 @@ export default function AdminPeriodsPage() {
               >
                 下書きシフト
               </Link>
+              <Link
+                href={`/admin/periods/${period.id}/edit`}
+                className="text-blue-600 hover:underline"
+              >
+                編集
+              </Link>
+              <button
+                type="button"
+                onClick={() => handleDelete(period)}
+                disabled={deletingId === period.id}
+                className="text-red-600 hover:underline disabled:opacity-50"
+              >
+                {deletingId === period.id ? "削除中..." : "削除"}
+              </button>
             </div>
           </li>
         ))}

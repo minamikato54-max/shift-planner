@@ -1,10 +1,12 @@
 import {
   addDoc,
   collection,
+  deleteDoc,
   doc,
   getDoc,
   getDocs,
   serverTimestamp,
+  updateDoc,
 } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import type { Period, Slot } from "@/lib/types";
@@ -38,4 +40,19 @@ export async function createPeriod(
     createdAt: serverTimestamp(),
   });
   return ref.id;
+}
+
+export async function updatePeriod(
+  id: string,
+  input: { title: string; startDate: string; endDate: string; slots: Slot[] },
+): Promise<void> {
+  await updateDoc(doc(db, "periods", id), { ...input });
+}
+
+// Deletes the period doc only. Any `availabilities`/`assignments` documents
+// referencing this periodId are intentionally left as-is (no cascade
+// delete) — out of scope per spec.md, and this app's scale doesn't warrant
+// the extra cleanup logic.
+export async function deletePeriod(id: string): Promise<void> {
+  await deleteDoc(doc(db, "periods", id));
 }

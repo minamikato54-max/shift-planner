@@ -4,9 +4,10 @@ import { useState } from "react";
 import ShiftBoardTable from "@/components/ShiftBoardTable";
 import NotifyResultsList from "@/components/NotifyResultsList";
 import { generateDraftAssignments } from "@/lib/autoAssign";
-import { enumerateDates } from "@/lib/dateUtils";
+import { dayOfWeekLabel, enumerateDates } from "@/lib/dateUtils";
 import {
   confirmAndNotify,
+  renotify,
   saveDraftAssignments,
   updateDraftByDate,
 } from "@/lib/assignments";
@@ -149,6 +150,22 @@ export default function DraftShiftBoard({
     }
   }
 
+  async function handleRenotify() {
+    if (!auth.currentUser) return;
+    setPending(true);
+    setError(null);
+    try {
+      const idToken = await auth.currentUser.getIdToken();
+      const { results } = await renotify(period.id, idToken);
+      setNotifyResults(results);
+    } catch (err) {
+      console.error("再通知に失敗しました", err);
+      setError(err instanceof Error ? err.message : "再通知に失敗しました。");
+    } finally {
+      setPending(false);
+    }
+  }
+
   return (
     <div className="flex flex-col gap-6">
       {!confirmed && (
@@ -174,9 +191,19 @@ export default function DraftShiftBoard({
         </div>
       )}
       {confirmed && (
-        <p className="text-sm text-green-600">
-          確定済みです（編集はできません）。
-        </p>
+        <div className="flex flex-wrap items-center gap-3">
+          <p className="text-sm text-green-600">
+            確定済みです。下の「手動調整」で内容を変更した場合は、再通知ボタンで全員に最新の内容を送り直せます。
+          </p>
+          <button
+            type="button"
+            onClick={handleRenotify}
+            disabled={pending}
+            className="rounded-md border border-zinc-900 px-4 py-2 text-sm font-medium disabled:opacity-50 dark:border-white"
+          >
+            変更を全員に再通知する
+          </button>
+        </div>
       )}
       {error && <p className="text-sm text-red-600">{error}</p>}
 
@@ -189,12 +216,14 @@ export default function DraftShiftBoard({
         />
       )}
 
-      {hasDraft && !confirmed && (
+      {hasDraft && (
         <div className="flex flex-col gap-4">
           <h2 className="text-sm font-semibold text-zinc-500">手動調整</h2>
           {dates.map((date) => (
             <div key={date} className="flex flex-col gap-2">
-              <p className="text-sm font-medium">{date}</p>
+              <p className="text-sm font-medium">
+                {date}（{dayOfWeekLabel(date)}）
+              </p>
               {period.slots.map((slot) => {
                 const uids = byDate[date]?.[slot.name] ?? [];
                 return (

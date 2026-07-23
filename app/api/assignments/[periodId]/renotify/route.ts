@@ -1,8 +1,16 @@
-import { FieldValue } from "firebase-admin/firestore";
 import { getAdminAuth, getAdminDb } from "@/lib/firebaseAdmin";
 import { notifyAllAssignedStaff } from "@/lib/notifyAssignments";
 import type { AssignmentsByDate, Period } from "@/lib/types";
 
+// Re-sends notifications for an ALREADY-confirmed period, using whatever
+// `byDate` currently holds — used when an admin edits assignments (e.g.
+// swaps someone out) after the initial confirm/notify already went out.
+// Unlike /confirm, this can be called repeatedly (no "already sent" guard);
+// each call overwrites `notifyResults` with the latest outcome. Note: a
+// staff member entirely REMOVED from byDate after being notified once does
+// not get an explicit "you're no longer scheduled" message — they simply
+// stop appearing in the next notification. Re-notify only tells people
+// their CURRENT assignment, not what changed.
 export async function POST(
   req: Request,
   { params }: { params: Promise<{ periodId: string }> },
@@ -33,36 +41,18 @@ export async function POST(
   const period = periodSnap.data() as Period;
 
   const assignmentsRef = adminDb.doc(`assignments/${periodId}`);
-
-  let byDate: AssignmentsByDate;
-  try {
-    // Atomic check-and-set, mirroring nomi-check's takeMedicine() transaction
-    // pattern, so a double-click never sends duplicate notifications.
-    byDate = await adminDb.runTransaction(async (tx) => {
-      const snap = await tx.get(assignmentsRef);
-      if (!snap.exists) throw new Error("assignments not found");
-      const data = snap.data()!;
-      if (data.confirmed) throw new Error("already confirmed");
-
-      tx.update(assignmentsRef, {
-        confirmed: true,
-        confirmedAt: FieldValue.serverTimestamp(),
-      });
-      return data.byDate as AssignmentsByDate;
-    });
-  } catch (err) {
-    console.error("シフト確定処理に失敗しました", err);
-    return Response.json(
-      { error: err instanceof Error ? err.message : "confirm failed" },
-      { status: 409 },
-    );
+  const assignmentsSnap = await assignmentsRef.get();
+  const assignmentsData = assignmentsSnap.data();
+  if (!assignmentsSnap.exists || !assignmentsData?.confirmed) {
+    return Response.json({ error: "not yet confirmed" }, { status: 409 });
   }
+  const byDate = assignmentsData.byDate as AssignmentsByDate;
 
   const results = await notifyAllAssignedStaff(
     adminDb,
     period,
     byDate,
-    `${period.title}のシフトが確定しました。`,
+    `${period.title}のシフト内容が更新されました。`,
   );
 
   await assignmentsRef.update({ notifyResults: results });

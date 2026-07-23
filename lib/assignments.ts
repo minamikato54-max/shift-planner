@@ -69,3 +69,22 @@ export async function confirmAndNotify(
 
   return res.json();
 }
+
+// Re-sends notifications for an already-confirmed period using its current
+// byDate — used after an admin edits assignments post-confirm.
+export async function renotify(
+  periodId: string,
+  idToken: string,
+): Promise<{ results: Record<string, "sent" | "failed"> }> {
+  const res = await fetch(`/api/assignments/${periodId}/renotify`, {
+    method: "POST",
+    headers: { Authorization: `Bearer ${idToken}` },
+  });
+
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}));
+    throw new Error(body.error ?? `再通知に失敗しました（${res.status}）`);
+  }
+
+  return res.json();
+}

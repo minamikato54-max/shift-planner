@@ -1,7 +1,8 @@
 "use client";
 
+import Link from "next/link";
 import { useState } from "react";
-import { enumerateDates } from "@/lib/dateUtils";
+import { dayOfWeekLabel, enumerateDates } from "@/lib/dateUtils";
 import { saveAvailability } from "@/lib/availabilities";
 import type { AvailabilityEntry, Period } from "@/lib/types";
 
@@ -13,6 +14,11 @@ type Props = {
   defaultShift: { start: string; end: string } | null;
 };
 
+// Time is intentionally NOT editable per day here — each staff member's
+// working hours are fixed (set once in the profile screen as
+// `defaultShift`), so submitting availability is just an OK/NG toggle per
+// date. Re-entering start/end times every submission was reported as too
+// tedious in practice.
 export default function AvailabilityGrid({
   period,
   userId,
@@ -44,8 +50,16 @@ export default function AvailabilityGrid({
     setSaved(false);
   }
 
-  function setOk(date: string, start: string, end: string) {
-    setEntries((prev) => ({ ...prev, [date]: { status: "ok", start, end } }));
+  function setOk(date: string) {
+    if (!defaultShift) return;
+    setEntries((prev) => ({
+      ...prev,
+      [date]: {
+        status: "ok",
+        start: defaultShift.start,
+        end: defaultShift.end,
+      },
+    }));
     setSaved(false);
   }
 
@@ -63,47 +77,47 @@ export default function AvailabilityGrid({
     }
   }
 
+  if (!defaultShift) {
+    return (
+      <p className="text-sm text-zinc-500">
+        希望を提出する前に、
+        <Link href="/profile" className="text-blue-600 hover:underline">
+          プロフィール画面
+        </Link>
+        で基本勤務時間帯を設定してください。
+      </p>
+    );
+  }
+
   return (
     <div className="flex flex-col gap-4">
+      <p className="text-sm text-zinc-500">
+        基本勤務時間帯: {defaultShift.start}〜{defaultShift.end}
+        （変更は
+        <Link href="/profile" className="text-blue-600 hover:underline">
+          プロフィール画面
+        </Link>
+        から）
+      </p>
+
       <div className="flex flex-col divide-y divide-zinc-200 dark:divide-zinc-800">
         {dates.map((date) => {
           const entry = entries[date];
           const isOk = entry.status === "ok";
           return (
             <div key={date} className="flex flex-wrap items-center gap-3 py-2">
-              <span className="w-28 shrink-0 text-sm">{date}</span>
+              <span className="w-32 shrink-0 text-sm">
+                {date}（{dayOfWeekLabel(date)}）
+              </span>
               <label className="flex items-center gap-1 text-sm">
                 <input
                   type="radio"
                   name={`status-${date}`}
                   checked={isOk}
-                  onChange={() =>
-                    setOk(
-                      date,
-                      isOk ? entry.start : (defaultShift?.start ?? "09:00"),
-                      isOk ? entry.end : (defaultShift?.end ?? "17:00"),
-                    )
-                  }
+                  onChange={() => setOk(date)}
                 />
-                出勤可
+                出勤可（{defaultShift.start}〜{defaultShift.end}）
               </label>
-              {isOk && (
-                <span className="flex items-center gap-1">
-                  <input
-                    type="time"
-                    value={entry.start}
-                    onChange={(e) => setOk(date, e.target.value, entry.end)}
-                    className="rounded-md border border-zinc-300 px-2 py-1 text-sm dark:border-zinc-700 dark:bg-zinc-900"
-                  />
-                  〜
-                  <input
-                    type="time"
-                    value={entry.end}
-                    onChange={(e) => setOk(date, entry.start, e.target.value)}
-                    className="rounded-md border border-zinc-300 px-2 py-1 text-sm dark:border-zinc-700 dark:bg-zinc-900"
-                  />
-                </span>
-              )}
               <label className="flex items-center gap-1 text-sm">
                 <input
                   type="radio"
