@@ -18,7 +18,8 @@ Shift Planner（シフト希望提出・自動割当・通知アプリ）。1つ
 ## Architecture
 
 - Next.js 16.2.10 App Router（`app/`、`src/`なし）+ TypeScript + Tailwind v4 + Firebase（Authentication: Googleログイン、Firestore: `users` / `periods` / `availabilities` / `assignments`）。詳細なスキーマは`spec.md`のデータモデル節を参照
-- `lib/firebase.ts`はクライアントSDK（nomi-checkと同一パターン）。`lib/firebaseAdmin.ts`はAdmin SDKで、`getAdminAuth()`/`getAdminDb()`という**遅延初期化の関数**として公開している（トップレベルでの即時初期化にすると、資格情報が無い環境での`next build`が失敗するため）。Admin SDKは`app/api/**`配下のみから使うこと
+- `lib/firebase.ts`はクライアントSDK（nomi-checkと同一パターン）。`lib/firebaseAdmin.ts`はAdmin SDK（`firebase-admin/app`・`firebase-admin/firestore`のみ）で、`getAdminDb()`という**遅延初期化の関数**として公開している（トップレベルでの即時初期化にすると、資格情報が無い環境での`next build`が失敗するため）。Admin SDKは`app/api/**`配下のみから使うこと
+- **`firebase-admin/auth`は使わない（意図的・重要）**: `verifyIdToken()`は`jwks-rsa`→`jose`という依存を持つが、2026-07時点で公開されている`jose`最新版が`"type":"module"`のESM専用になっており、CJSの`jwks-rsa`から`require()`されると`ERR_REQUIRE_ESM`で落ちる。これは`next dev`では発生せず、Vercelの本番ビルド（Turbopackの外部モジュールローダー）でのみ再現する、現在未解決の上流バグ。IDトークンの検証は代わりに`lib/verifyFirebaseIdToken.ts`（純粋にCJSな`jsonwebtoken`＋Googleの公開鍵エンドポイントを直接叩く自前実装）を使うこと。`firebase-admin/auth`のimportを復活させる場合は、必ずローカルではなく実際のVercelデプロイで動作確認すること
 - 通知はNodemailer（Gmail SMTP、アプリパスワード）とLINE Messaging API（本アプリ専用の新規チャネル。health-bot・他プロジェクトのLINEチャネルとは別物で、既存設定には一切触れない）。`lib/mailer.ts`・`lib/line.ts`はどちらも`server-only`
 - `assignments`は1期間=1ドキュメント、ドキュメントIDに`periodId`をそのまま使う。取得は`getDoc`で直接行い、クエリを使わない。`staffNames`（uid→表示名のスナップショット）を同居させ、全員閲覧画面が他人の`users`ドキュメントを横断参照しなくて済むようにしている
 - 確定（`confirmed:true`）後も管理者は手動調整（追加・削除）を続けられる。`/api/assignments/[periodId]/confirm`と`/api/assignments/[periodId]/renotify`は`lib/notifyAssignments.ts`の送信ループを共有しており、`renotify`は「確定済みであること」だけを条件に何度でも呼べる（`confirm`側の「二重送信防止トランザクション」は初回確定時のみ）

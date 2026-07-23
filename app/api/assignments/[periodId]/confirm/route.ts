@@ -1,6 +1,7 @@
 import { FieldValue } from "firebase-admin/firestore";
-import { getAdminAuth, getAdminDb } from "@/lib/firebaseAdmin";
+import { getAdminDb } from "@/lib/firebaseAdmin";
 import { notifyAllAssignedStaff } from "@/lib/notifyAssignments";
+import { verifyFirebaseIdToken } from "@/lib/verifyFirebaseIdToken";
 import type { AssignmentsByDate, Period } from "@/lib/types";
 
 export async function POST(
@@ -8,7 +9,6 @@ export async function POST(
   { params }: { params: Promise<{ periodId: string }> },
 ) {
   const { periodId } = await params;
-  const adminAuth = getAdminAuth();
   const adminDb = getAdminDb();
 
   const idToken = req.headers.get("authorization")?.replace("Bearer ", "");
@@ -16,7 +16,7 @@ export async function POST(
     return Response.json({ error: "unauthorized" }, { status: 401 });
   }
 
-  const decoded = await adminAuth.verifyIdToken(idToken).catch(() => null);
+  const decoded = await verifyFirebaseIdToken(idToken).catch(() => null);
   if (!decoded) {
     return Response.json({ error: "unauthorized" }, { status: 401 });
   }
